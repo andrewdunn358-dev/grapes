@@ -33,7 +33,7 @@ Everything runs in Docker on the NAS, and she reaches it from outside through a 
      cd /volume1/docker/grapes
      sudo docker compose up -d --build
      ```
-4. **Set her password.** Open `http://NAS-IP:8080` and choose the password she'll log in with.
+4. **Set her password.** Open `http://NAS-IP:1358` and choose the password she'll log in with.
 
 ### Cloudflare
 
@@ -42,7 +42,7 @@ You already run cloudflared? In Zero Trust → Networks → Tunnels → your tun
 | Setting | Value |
 |---|---|
 | Hostname | e.g. `grapes.yourdomain.co.uk` |
-| Service | `HTTP` → `NAS-IP:8080` |
+| Service | `HTTP` → `NAS-IP:1358` |
 
 No cloudflared yet? Create a tunnel, put its token in `.env` as `TUNNEL_TOKEN=...`, set the public hostname's service to `http://app:80`, then run:
 
