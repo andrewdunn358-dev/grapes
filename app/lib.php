@@ -2,11 +2,22 @@
 // Shared setup: config, database connection, tables and login handling.
 declare(strict_types=1);
 
-if (!file_exists(__DIR__ . '/config.php')) {
+// Settings come from config.php (shared hosting) or environment variables (Docker).
+if (file_exists(__DIR__ . '/config.php')) {
+    $CONFIG = require __DIR__ . '/config.php';
+} elseif (getenv('GK_DB_DRIVER') !== false || getenv('GK_SQLITE_PATH') !== false) {
+    $CONFIG = [
+        'driver'      => getenv('GK_DB_DRIVER') ?: 'sqlite',
+        'sqlite_path' => getenv('GK_SQLITE_PATH') ?: '/data/grapes-keeper.sqlite',
+        'db_host'     => getenv('GK_DB_HOST') ?: 'localhost',
+        'db_name'     => getenv('GK_DB_NAME') ?: '',
+        'db_user'     => getenv('GK_DB_USER') ?: '',
+        'db_pass'     => getenv('GK_DB_PASS') ?: '',
+    ];
+} else {
     http_response_code(500);
     exit('Missing config.php. Copy config.sample.php to config.php and fill in the database details.');
 }
-$CONFIG = require __DIR__ . '/config.php';
 
 const COOKIE = 'gk_auth';
 const COLS = ['takings', 'expenses', 'wages', 'banking'];
@@ -19,6 +30,8 @@ function db(): PDO
     $opts = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC];
     if (($CONFIG['driver'] ?? 'mysql') === 'sqlite') {
         $pdo = new PDO('sqlite:' . $CONFIG['sqlite_path'], null, null, $opts);
+        $pdo->exec('PRAGMA journal_mode = WAL');   // phone and computer can save at the same time
+        $pdo->exec('PRAGMA busy_timeout = 5000');
     } else {
         $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', $CONFIG['db_host'], $CONFIG['db_name']);
         $pdo = new PDO($dsn, $CONFIG['db_user'], $CONFIG['db_pass'], $opts);

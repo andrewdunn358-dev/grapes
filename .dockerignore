@@ -1,0 +1,5 @@
+.git
+data
+*.sqlite
+.env
+app/config.php

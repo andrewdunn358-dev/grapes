@@ -1,0 +1,27 @@
+services:
+  grapes-keeper:
+    build: .
+    image: grapes-keeper:latest
+    container_name: grapes-keeper
+    restart: unless-stopped
+    ports:
+      - "8080:80"            # change the left number if 8080 is taken on the NAS
+    volumes:
+      - ./data:/data         # the books live here: data/grapes-keeper.sqlite
+    environment:
+      - TZ=Europe/London
+
+  # Optional: only if you don't already run cloudflared on the NAS.
+  # Create a tunnel in Cloudflare Zero Trust, copy its token into a .env file as
+  # TUNNEL_TOKEN=..., point the public hostname at http://grapes-keeper:80,
+  # then start with:  docker compose --profile tunnel up -d
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: grapes-keeper-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - grapes-keeper
+    profiles: ["tunnel"]
