@@ -41,7 +41,7 @@ You already run cloudflared? In Zero Trust → Networks → Tunnels → your tun
 
 | Setting | Value |
 |---|---|
-| Hostname | e.g. `grapes.yourdomain.co.uk` |
+| Hostname | `grapes.3bty.co.uk` |
 | Service | `HTTP` → `NAS-IP:1358` |
 
 No cloudflared yet? Create a tunnel, put its token in `.env` as `TUNNEL_TOKEN=...`, set the public hostname's service to `http://app:80`, then run:
@@ -56,7 +56,7 @@ In the Cloudflare dashboard, turn on SSL/TLS → Edge Certificates → **Always 
 
 ## Her phone
 
-Open the Cloudflare address and log in once. It remembers the device for six months.
+Open https://grapes.3bty.co.uk and log in once. It remembers the device for six months.
 
 - **iPhone:** Share → *Add to Home Screen*
 - **Android:** ⋮ → *Add to Home screen*
