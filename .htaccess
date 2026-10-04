@@ -1,0 +1,19 @@
+# Always use HTTPS (20i provides free SSL)
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+DirectoryIndex index.php
+Options -Indexes
+
+# Never serve config, helpers, docs or local test databases directly
+<FilesMatch "^(config\.php|config\.sample\.php|lib\.php|app\.html|README\.md|.*\.sqlite)$">
+  Require all denied
+</FilesMatch>
+RedirectMatch 404 /\.git
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>

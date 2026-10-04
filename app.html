@@ -1,0 +1,162 @@
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="logo" id="logo" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 6c2-3 6-4 9-3-2 1-4 3-5 6" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linecap="round"/><g fill="var(--plum)"><circle cx="16" cy="15" r="5.5"/><circle cx="27" cy="15" r="5.5"/><circle cx="38" cy="15" r="5"/><circle cx="21" cy="25" r="5.5"/><circle cx="32" cy="25" r="5.5"/><circle cx="26" cy="35" r="5.5"/></g></svg></span>
+      <h1><small>The Grapes · Bedlington</small>The Grapes Keeper</h1>
+    </div>
+    <div class="monthpick">
+      <button class="iconbtn" id="prevM" aria-label="Previous month">‹</button>
+      <span id="mLabel" class="num"></span>
+      <button class="iconbtn" id="nextM" aria-label="Next month">›</button>
+    </div>
+  </header>
+
+  <div id="banner"></div>
+  <!--PW_MSG-->
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="day" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Takings</button>
+    <button role="tab" data-tab="spend" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Spending</button>
+    <button role="tab" data-tab="wages" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg>Wages</button>
+    <button role="tab" data-tab="bank" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-6 9 6M5 10v8M19 10v8M9.5 10v8M14.5 10v8M3 21h18"/></svg>Banking</button>
+    <button role="tab" data-tab="month" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Month</button>
+    <button role="tab" data-tab="setup" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Setup</button>
+  </nav>
+
+  <!-- TAKINGS -->
+  <section class="panel" id="tab-day">
+    <form class="card" id="fDay">
+      <h2>Day's takings</h2>
+      <div class="row">
+        <label class="f">Date<input type="date" id="dDate" required></label>
+        <label class="f">Till Z-read total<span class="hint">From the end-of-day till roll</span><span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="dZ" placeholder="0.00"></span></label>
+      </div>
+      <div class="row">
+        <label class="f">Card<span class="hint">Card machine end-of-day total</span><span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="dCard" placeholder="0.00"></span></label>
+        <label class="f">Cash counted<span class="hint">Leave the float out</span><span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="dCash" placeholder="0.00"></span></label>
+      </div>
+      <div id="dCheck"></div>
+      <label class="f">Notes<input type="text" id="dNote" placeholder="e.g. quiz night, band on"></label>
+      <div class="actions"><button class="btn primary" type="submit" id="dSave">Save takings</button><span class="muted" id="dState"></span></div>
+    </form>
+    <div class="card">
+      <div class="figs" id="cashFigs"></div>
+    </div>
+    <div class="card"><h3>Takings this month</h3><div class="list" id="lDay"></div></div>
+  </section>
+
+  <!-- SPENDING -->
+  <section class="panel" id="tab-spend" hidden>
+    <form class="card" id="fSpend">
+      <h2>Money out</h2>
+      <div id="sEditing"></div>
+      <div class="row">
+        <label class="f">Date<input type="date" id="sDate" required></label>
+        <label class="f">Supplier / who to<input type="text" id="sWho" list="supList" required placeholder="e.g. Brewery, Booker"></label>
+      </div>
+      <div class="row">
+        <label class="f">What for<select id="sCat"></select></label>
+        <label class="f">Amount<span class="hint">Total on the receipt</span><span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="sAmt" required placeholder="0.00"></span></label>
+        <label class="f" id="sVatWrap" hidden>VAT included<span class="hint">From the receipt, if shown</span><span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="sVat" placeholder="0.00"></span></label>
+      </div>
+      <div class="row">
+        <label class="f">Paid by<select id="sHow"></select></label>
+        <label class="f">Notes<input type="text" id="sNote" placeholder="Invoice no., what it was"></label>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">Save</button><button class="btn ghost" type="button" id="sCancel" hidden>Cancel edit</button></div>
+    </form>
+    <div class="card"><h3>Spending this month</h3><div class="list" id="lSpend"></div></div>
+  </section>
+
+  <!-- WAGES -->
+  <section class="panel" id="tab-wages" hidden>
+    <form class="card" id="fWage">
+      <h2>Wages paid</h2>
+      <div id="wEditing"></div>
+      <div class="row">
+        <label class="f">Date paid<input type="date" id="wDate" required></label>
+        <label class="f">Staff name<input type="text" id="wWho" list="staffList" required></label>
+      </div>
+      <div class="row">
+        <label class="f">Hours<input type="number" step="0.25" min="0" inputmode="decimal" id="wHrs" placeholder="0"></label>
+        <label class="f">Hourly rate<span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="wRate" placeholder="0.00"></span></label>
+        <label class="f">Amount paid<span class="hint">Fills in from hours × rate</span><span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="wAmt" required placeholder="0.00"></span></label>
+      </div>
+      <div class="row">
+        <label class="f">Paid by<select id="wHow"><option>Cash from till</option><option>Bank transfer</option></select></label>
+        <label class="f">Notes<input type="text" id="wNote" placeholder="e.g. week ending Sun"></label>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">Save</button><button class="btn ghost" type="button" id="wCancel" hidden>Cancel edit</button></div>
+    </form>
+    <div class="card"><h3>Wages this month</h3><div class="list" id="lWage"></div></div>
+  </section>
+
+  <!-- BANKING -->
+  <section class="panel" id="tab-bank" hidden>
+    <form class="card" id="fBank">
+      <h2>Cash paid into the bank</h2>
+      <div class="row">
+        <label class="f">Date<input type="date" id="bDate" required></label>
+        <label class="f">Amount banked<span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="bAmt" required placeholder="0.00"></span></label>
+        <label class="f">Paying-in ref<input type="text" id="bNote" placeholder="Slip or bag number"></label>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">Save</button></div>
+    </form>
+    <div class="card"><h3>Bankings this month</h3><div class="list" id="lBank"></div></div>
+  </section>
+
+  <!-- MONTH -->
+  <section class="panel" id="tab-month" hidden>
+    <div class="card">
+      <h2 id="mTitle"></h2>
+      <div class="figs" id="mFigs"></div>
+    </div>
+    <div class="card">
+      <h3>Takings by day</h3>
+      <div class="bars" id="mBars" aria-hidden="true"></div>
+      <div class="bars-x"><span>1st</span><span id="mBarsEnd"></span></div>
+      <p class="muted num" id="mBest"></p>
+    </div>
+    <div class="row" style="align-items:start">
+      <div class="card"><h3>Spending by type</h3><table class="t" id="mCats"></table></div>
+      <div class="card"><h3>Cash check</h3><table class="t" id="mCash"></table></div>
+    </div>
+    <div class="card" id="mVat"></div>
+    <div class="card">
+      <h3>Send to the accountant</h3>
+      <p class="muted">Download this month's entries as a spreadsheet file (CSV). It opens in Excel.</p>
+      <div class="actions"><button class="btn primary" id="exMonth">Download this month</button><button class="btn ghost" id="exAll">Download everything</button></div>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="panel" id="tab-setup" hidden>
+    <form class="card" id="fSet">
+      <h2>Setup</h2>
+      <label class="f" style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="checkbox" id="setVat" style="width:22px;height:22px"> The pub is VAT registered</label>
+      <p class="muted" style="font-size:.9rem">Ticking this adds a VAT box to spending and a VAT section to the monthly summary. Not sure? Check with the accountant, or look for a VAT number on the pub's own receipts.</p>
+      <label class="f">Staff names<span class="hint">One per line. They appear as suggestions on the Wages tab.</span><textarea id="setStaff"></textarea></label>
+      <label class="f">Till float<span class="hint">For reference only. Takings should be counted without it.</span><span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="setFloat" placeholder="0.00"></span></label>
+      <div class="actions"><button class="btn primary" type="submit">Save setup</button></div>
+    </form>
+    <form class="card" method="post" action="./" autocomplete="off">
+      <h3>Change password</h3>
+      <input type="hidden" name="action" value="changepw">
+      <div class="row">
+        <label class="f">Current password<input type="password" name="cur" id="pwCur" required autocomplete="current-password"></label>
+        <label class="f">New password<input type="password" name="p1" id="pwNew1" required minlength="8" autocomplete="new-password"></label>
+        <label class="f">New password again<input type="password" name="p2" id="pwNew2" required minlength="8" autocomplete="new-password"></label>
+      </div>
+      <div class="actions"><button class="btn ghost" type="submit">Change password</button></div>
+    </form>
+    <div class="card" id="whereSaved">
+      <h3>Where this is saved</h3>
+      <p>Everything is saved on the Grapes Keeper website, so the phone behind the bar and the office computer show the same books. Download everything from the Month tab now and then as a spare copy.</p>
+      <div class="actions"><a class="btn ghost" href="./?action=logout" style="text-decoration:none">Log out of this device</a></div>
+    </div>
+  </section>
+
+  <datalist id="supList"></datalist>
+  <datalist id="staffList"></datalist>
+</div>
+<div class="toast" id="toast" hidden></div>
