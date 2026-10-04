@@ -10,6 +10,7 @@ if (file_exists(__DIR__ . '/config.php')) {
         'driver'      => getenv('GK_DB_DRIVER') ?: 'sqlite',
         'sqlite_path' => getenv('GK_SQLITE_PATH') ?: '/data/grapes-keeper.sqlite',
         'db_host'     => getenv('GK_DB_HOST') ?: 'localhost',
+        'db_port'     => getenv('GK_DB_PORT') ?: '3306',
         'db_name'     => getenv('GK_DB_NAME') ?: '',
         'db_user'     => getenv('GK_DB_USER') ?: '',
         'db_pass'     => getenv('GK_DB_PASS') ?: '',
@@ -33,7 +34,8 @@ function db(): PDO
         $pdo->exec('PRAGMA journal_mode = WAL');   // phone and computer can save at the same time
         $pdo->exec('PRAGMA busy_timeout = 5000');
     } else {
-        $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', $CONFIG['db_host'], $CONFIG['db_name']);
+        $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
+            $CONFIG['db_host'], $CONFIG['db_port'] ?? '3306', $CONFIG['db_name']);
         $pdo = new PDO($dsn, $CONFIG['db_user'], $CONFIG['db_pass'], $opts);
     }
     // Tables are created automatically on first run (no SQL import needed).

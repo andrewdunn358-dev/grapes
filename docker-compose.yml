@@ -1,19 +1,74 @@
+# The Grapes Keeper: app + MariaDB + nightly backups (+ optional Cloudflare tunnel)
+# Put the passwords in a .env file next to this one (copy .env.example).
+
 services:
-  grapes-keeper:
+  app:
     build: .
     image: grapes-keeper:latest
     container_name: grapes-keeper
     restart: unless-stopped
     ports:
-      - "8080:80"            # change the left number if 8080 is taken on the NAS
-    volumes:
-      - ./data:/data         # the books live here: data/grapes-keeper.sqlite
+      - "${APP_PORT:-8080}:80"
     environment:
-      - TZ=Europe/London
+      TZ: Europe/London
+      GK_DB_DRIVER: mysql
+      GK_DB_HOST: db
+      GK_DB_NAME: grapes
+      GK_DB_USER: grapes
+      GK_DB_PASS: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11.4
+    container_name: grapes-keeper-db
+    restart: unless-stopped
+    environment:
+      TZ: Europe/London
+      MARIADB_DATABASE: grapes
+      MARIADB_USER: grapes
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Dumps the books once a day to ./data/backups and keeps 30 days of them.
+  backup:
+    image: mariadb:11.4
+    container_name: grapes-keeper-backup
+    restart: unless-stopped
+    environment:
+      TZ: Europe/London
+      MYSQL_PWD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - ./data/backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/grapes-$$(date +%F).sql.gz
+          if mariadb-dump -h db -u grapes --single-transaction grapes > /backups/.dump.sql; then
+            gzip -c /backups/.dump.sql > "$$f" && echo "Backup written: $$f"
+          else
+            echo "Backup FAILED - previous backups kept"
+          fi
+          rm -f /backups/.dump.sql
+          find /backups -name 'grapes-*.sql.gz' -mtime +30 -delete
+          sleep 86400
+        done
 
   # Optional: only if you don't already run cloudflared on the NAS.
-  # Create a tunnel in Cloudflare Zero Trust, copy its token into a .env file as
-  # TUNNEL_TOKEN=..., point the public hostname at http://grapes-keeper:80,
+  # Put TUNNEL_TOKEN in .env, point the tunnel's public hostname at http://app:80,
   # then start with:  docker compose --profile tunnel up -d
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -21,7 +76,7 @@ services:
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
-      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
     depends_on:
-      - grapes-keeper
+      - app
     profiles: ["tunnel"]

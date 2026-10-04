@@ -1,7 +1,8 @@
-# The Grapes Keeper: PHP + Apache, data kept in a single SQLite file under /data
+# The Grapes Keeper app container: PHP + Apache. The database runs in its own
+# MariaDB container (see docker-compose.yml); SQLite under /data is only a fallback.
 FROM php:8.3-apache
 
-# MySQL driver is optional (SQLite support is built into the base image)
+# MySQL/MariaDB driver
 RUN docker-php-ext-install pdo_mysql \
  && a2enmod rewrite headers \
  && printf '<Directory /var/www/html>\n  AllowOverride All\n</Directory>\nServerTokens Prod\nServerSignature Off\n' > /etc/apache2/conf-enabled/grapes.conf \
