@@ -122,10 +122,31 @@
       <div class="card"><h3>Cash check</h3><table class="t" id="mCash"></table></div>
     </div>
     <div class="card" id="mVat"></div>
-    <div class="card">
-      <h3>Send to the accountant</h3>
-      <p class="muted">Download this month's entries as a spreadsheet file (CSV). It opens in Excel.</p>
-      <div class="actions"><button class="btn primary" id="exMonth">Download this month</button><button class="btn ghost" id="exAll">Download everything</button></div>
+    <div class="card" id="reports">
+      <h2>Reports</h2>
+      <p class="muted">Print a report, save it as a PDF from the print screen, or download the entries as a spreadsheet for the accountant.</p>
+      <div class="row">
+        <label class="f">Period<select id="rPeriod">
+          <option value="month">The month shown above</option>
+          <option value="quarter">The quarter it falls in</option>
+          <option value="taxyear">The tax year (6 April to 5 April)</option>
+          <option value="custom">Choose dates…</option>
+        </select></label>
+        <label class="f">Detail<select id="rDetail">
+          <option value="full">Full: every entry listed</option>
+          <option value="summary">Summary only (one page)</option>
+        </select></label>
+      </div>
+      <div class="row" id="rCustom" hidden>
+        <label class="f">From<input type="date" id="rFrom"></label>
+        <label class="f">To<input type="date" id="rTo"></label>
+      </div>
+      <p class="muted num" id="rRange"></p>
+      <div class="actions">
+        <button class="btn primary" type="button" id="rPrint">Print report</button>
+        <button class="btn ghost" type="button" id="rCsv">Download spreadsheet (CSV)</button>
+        <button class="btn ghost" type="button" id="exAll">Download everything</button>
+      </div>
     </div>
   </section>
 
@@ -139,20 +160,35 @@
       <label class="f">Till float<span class="hint">For reference only. Takings should be counted without it.</span><span class="money"><input type="number" step="0.01" min="0" inputmode="decimal" id="setFloat" placeholder="0.00"></span></label>
       <div class="actions"><button class="btn primary" type="submit">Save setup</button></div>
     </form>
-    <form class="card" method="post" action="./" autocomplete="off">
-      <h3>Change password</h3>
-      <input type="hidden" name="action" value="changepw">
+    <form class="card" id="fMyPw" autocomplete="off">
+      <h3>Your account</h3>
+      <p id="meLine" class="muted"></p>
       <div class="row">
-        <label class="f">Current password<input type="password" name="cur" id="pwCur" required autocomplete="current-password"></label>
-        <label class="f">New password<input type="password" name="p1" id="pwNew1" required minlength="8" autocomplete="new-password"></label>
-        <label class="f">New password again<input type="password" name="p2" id="pwNew2" required minlength="8" autocomplete="new-password"></label>
+        <label class="f">Current password<input type="password" id="pwCur" required autocomplete="current-password"></label>
+        <label class="f">New password<input type="password" id="pwNew1" required minlength="8" placeholder="8 or more characters" autocomplete="new-password"></label>
+        <label class="f">New password again<input type="password" id="pwNew2" required minlength="8" autocomplete="new-password"></label>
       </div>
-      <div class="actions"><button class="btn ghost" type="submit">Change password</button></div>
+      <div class="actions"><button class="btn ghost" type="submit">Change my password</button><a class="btn ghost" href="./?action=logout" style="text-decoration:none">Log out of this device</a></div>
     </form>
+    <div class="card" id="usersCard" hidden>
+      <h3>People who can log in</h3>
+      <div class="list" id="userList"></div>
+      <form id="fUser" autocomplete="off" style="display:grid;gap:12px;border-top:1px solid var(--line);padding-top:14px">
+        <h3>Add a person</h3>
+        <div class="row">
+          <label class="f">Name<input type="text" id="uName" required placeholder="e.g. Diane"></label>
+          <label class="f">Username<span class="hint">What they type to log in</span><input type="text" id="uUser" required autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. diane"></label>
+        </div>
+        <div class="row">
+          <label class="f">Password<span class="hint">At least 8 characters. Tell them it, they can change it.</span><input type="text" id="uPass" required minlength="8" autocomplete="new-password"></label>
+          <label class="f">Can they manage people?<select id="uRole"><option value="user">No, books only</option><option value="admin">Yes, admin</option></select></label>
+        </div>
+        <div class="actions"><button class="btn primary" type="submit">Add person</button></div>
+      </form>
+    </div>
     <div class="card" id="whereSaved">
       <h3>Where this is saved</h3>
-      <p>Everything is saved on the Grapes Keeper website, so the phone behind the bar and the office computer show the same books. Download everything from the Month tab now and then as a spare copy.</p>
-      <div class="actions"><a class="btn ghost" href="./?action=logout" style="text-decoration:none">Log out of this device</a></div>
+      <p>Everything is saved on the Grapes Keeper server, so the phone behind the bar and the office computer show the same books. It's backed up every night.</p>
     </div>
   </section>
 
@@ -160,3 +196,4 @@
   <datalist id="staffList"></datalist>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div id="report" aria-hidden="true"></div>

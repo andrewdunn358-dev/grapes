@@ -6,6 +6,7 @@ const VAT_THRESHOLD=9000000; // £90,000 in pence
 const COLS=["takings","expenses","wages","banking"];
 const data={takings:[],expenses:[],wages:[],banking:[]};
 let settings={vat:false,staff:[],float:0};
+let me=null,users=[];
 let status="loading"; // loading | ok | offline
 const now=new Date();
 let month=ym(now);
@@ -34,7 +35,7 @@ async function api(action,body){
   const opts=body?{method:"POST",headers:{"Content-Type":"application/json","X-Grapes":"1"},body:JSON.stringify(body),credentials:"same-origin"}:{credentials:"same-origin",cache:"no-store"};
   const r=await fetch("api.php?a="+action,opts);
   if(r.status===401){location.reload();throw new Error("login")}
-  if(!r.ok)throw new Error("http "+r.status);
+  if(!r.ok){let c="http "+r.status;try{c=(await r.json()).error||c}catch(e){}throw new Error(c)}
   return r.json();
 }
 async function refresh(){
@@ -42,6 +43,7 @@ async function refresh(){
     const j=await api("all");
     COLS.forEach(c=>data[c]=Array.isArray(j[c])?j[c]:[]);
     if(j.settings&&typeof j.settings==="object"){settings={vat:!!j.settings.vat,staff:Array.isArray(j.settings.staff)?j.settings.staff:[],float:j.settings.float||0}}
+    me=j.me||null;users=Array.isArray(j.users)?j.users:[];
     const first=status==="loading";status="ok";
     if(first)fillSetup();
     renderAll();
@@ -50,7 +52,7 @@ async function refresh(){
 }
 async function put(col,id,obj){
   obj.at=Date.now();
-  try{await api("put",{col,id,data:obj})}
+  try{const r=await api("put",{col,id,data:obj});if(r&&r.by)obj.by=r.by}
   catch(e){toast("Couldn't save. Check the signal and try again.");return false}
   const arr=data[col];const i=arr.findIndex(r=>r.id===id);const rec=Object.assign({id},obj);
   if(i>=0)arr[i]=rec;else arr.push(rec);
@@ -72,12 +74,12 @@ function renderBanner(){
 function renderAll(){
   $("mLabel").textContent=mLabel(month);
   $("nextM").disabled=month>=ym(new Date());
-  renderBanner();renderDay();renderSuggestions();renderMonth();renderLists();
+  renderBanner();renderDay();renderSuggestions();renderMonth();renderLists();renderPeople();renderRange();
   $("sVatWrap").hidden=!settings.vat;
 }
 
 function itemHTML(col,r,main,sub,amt,editable){
-  return `<div class="item"><span class="d">${dLabel(r.date)}</span><span class="w"><b>${esc(main)}</b>${sub?`<small>${esc(sub)}</small>`:""}</span><span class="amt">${gbp(amt)}</span><span class="ops">${editable?`<button type="button" data-edit="${col}:${esc(r.id)}">Edit</button>`:""}<button type="button" data-del="${col}:${esc(r.id)}">Delete</button></span></div>`;
+  return `<div class="item"><span class="d">${dLabel(r.date)}</span><span class="w"><b>${esc(main)}</b>${sub?`<small>${esc(sub)}</small>`:""}${r.by?`<span class="by">Entered by ${esc(r.by)}</span>`:""}</span><span class="amt">${gbp(amt)}</span><span class="ops">${editable?`<button type="button" data-edit="${col}:${esc(r.id)}">Edit</button>`:""}<button type="button" data-del="${col}:${esc(r.id)}">Delete</button></span></div>`;
 }
 function emptyHTML(t){return `<p class="empty">${t}</p>`}
 
@@ -243,15 +245,116 @@ document.querySelectorAll("nav.tabs button").forEach(b=>b.addEventListener("clic
 function shiftM(n){const [y,m]=month.split("-").map(Number);month=ym(new Date(y,m-1+n,1));renderAll()}
 $("prevM").addEventListener("click",()=>shiftM(-1));$("nextM").addEventListener("click",()=>shiftM(1));
 
+/* ---------- people & passwords ---------- */
+const ERR={wrong_current:"Your current password isn't right.",too_short:"Passwords need at least 8 characters.",username_taken:"That username is already used.",bad_username:"Usernames use letters, numbers, dots or dashes, with no spaces.",no_name:"Enter their name.",last_admin:"There must always be at least one admin.",self:"You can't remove your own account.",admin_only:"Only an admin can do that."};
+function errMsg(e){return ERR[e&&e.message]||"Couldn't save. Check the signal and try again."}
+function renderPeople(){
+  if(!me){$("meLine").textContent="";$("usersCard").hidden=true;return}
+  $("meLine").textContent=`Logged in as ${me.name} (${me.username})${me.role==="admin"?" · admin":""}`;
+  $("usersCard").hidden=me.role!=="admin";
+  if(me.role!=="admin")return;
+  const open=document.querySelector("#userList .reset:not([hidden])");const openId=open?open.dataset.uid:null;
+  $("userList").innerHTML=users.map(u=>`<div class="user-row"><div><b>${esc(u.name)}</b>${u.id===me.id?' <span class="pill">you</span>':""}<br><small>${esc(u.username)} · ${u.role==="admin"?"admin":"books only"}</small></div>
+    <div class="ops"><button type="button" data-act="pw" data-uid="${u.id}">Reset password</button>${u.id!==me.id?`<button type="button" data-act="role" data-uid="${u.id}">${u.role==="admin"?"Make books only":"Make admin"}</button><button type="button" data-act="del" data-uid="${u.id}">Remove</button>`:""}</div>
+    <div class="reset" data-uid="${u.id}" ${openId===u.id?"":"hidden"}><input type="text" id="np-${u.id}" placeholder="New password (8+ characters)" autocomplete="new-password"><button type="button" class="btn primary" data-act="pwsave" data-uid="${u.id}" style="min-height:40px;padding:8px 16px">Save</button></div></div>`).join("");
+}
+$("userList").addEventListener("click",async e=>{
+  const b=e.target.closest("button[data-act]");if(!b)return;const uid=b.dataset.uid,act=b.dataset.act;const u=users.find(x=>x.id===uid);if(!u)return;
+  try{
+    if(act==="pw"){const r=document.querySelector(`.reset[data-uid="${uid}"]`);r.hidden=!r.hidden;if(!r.hidden)$("np-"+uid).focus();return}
+    if(act==="pwsave"){const pw=$("np-"+uid).value;const j=await api("user_update",{userId:uid,password:pw});users=j.users;renderPeople();toast("Password changed for "+u.name);return}
+    if(act==="role"){const j=await api("user_update",{userId:uid,role:u.role==="admin"?"user":"admin"});users=j.users;renderPeople();toast("Updated "+u.name);return}
+    if(act==="del"){
+      if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to remove";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent="Remove"}},4000);return}
+      const j=await api("user_del",{userId:uid});users=j.users;renderPeople();toast(u.name+" removed");
+    }
+  }catch(err){toast(errMsg(err))}
+});
+$("fUser").addEventListener("submit",async e=>{e.preventDefault();
+  try{const j=await api("user_add",{name:$("uName").value.trim(),username:$("uUser").value.trim(),password:$("uPass").value,role:$("uRole").value});
+    users=j.users;const n=$("uName").value.trim();$("fUser").reset();renderPeople();toast(n+" can now log in");}
+  catch(err){toast(errMsg(err))}
+});
+$("uName").addEventListener("input",()=>{if(!$("uUser").dataset.touched)$("uUser").value=$("uName").value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g,"")});
+$("uUser").addEventListener("input",()=>$("uUser").dataset.touched="1");
+$("fMyPw").addEventListener("submit",async e=>{e.preventDefault();
+  if($("pwNew1").value!==$("pwNew2").value){toast("The two new passwords don't match.");return}
+  try{await api("my_password",{current:$("pwCur").value,new:$("pwNew1").value});$("fMyPw").reset();toast("Password changed. Other devices will need the new one.")}
+  catch(err){toast(errMsg(err))}
+});
+
+/* ---------- reports: print and export ---------- */
+function reportRange(){
+  const kind=$("rPeriod").value;const [y,m]=month.split("-").map(Number);
+  if(kind==="month")return{from:month+"-01",to:ymd(new Date(y,m,0)),label:mLabel(month)};
+  if(kind==="quarter"){const q=Math.floor((m-1)/3);const a=new Date(y,q*3,1),b=new Date(y,q*3+3,0);
+    return{from:ymd(a),to:ymd(b),label:a.toLocaleDateString("en-GB",{month:"short"})+" to "+b.toLocaleDateString("en-GB",{month:"short",year:"numeric"})}}
+  if(kind==="taxyear"){const start=(m>4||(m===4))?y:y-1; // tax year starts 6 April
+    return{from:start+"-04-06",to:(start+1)+"-04-05",label:`Tax year ${start}–${String(start+1).slice(2)}`}}
+  const f=$("rFrom").value,t=$("rTo").value;
+  if(!f||!t)return null;
+  const a=f<=t?f:t,b=f<=t?t:f;
+  return{from:a,to:b,label:longDate(a)+" to "+longDate(b)};
+}
+function longDate(s){return new Date(s+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
+function renderRange(){
+  $("rCustom").hidden=$("rPeriod").value!=="custom";
+  const r=reportRange();
+  $("rRange").textContent=r?`${longDate(r.from)} to ${longDate(r.to)}`:"Pick both dates.";
+}
+["rPeriod","rFrom","rTo"].forEach(id=>$(id).addEventListener("change",renderRange));
+function inRange(arr,r){return arr.filter(x=>x.date&&x.date>=r.from&&x.date<=r.to).sort((a,b)=>a.date.localeCompare(b.date))}
+function T(rows,head,foot){return `<table><thead><tr>${head.map(h=>`<th class="${h[1]||""}">${h[0]}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody>${foot?`<tfoot>${foot}</tfoot>`:""}</table>`}
+function td(v,n){return `<td${n?' class="n"':""}>${v}</td>`}
+function buildReport(r,full){
+  const tk=inRange(data.takings,r),ex=inRange(data.expenses,r),wg=inRange(data.wages,r),bk=inRange(data.banking,r);
+  const t=x=>(x.card||0)+(x.cash||0);
+  const card=sum(tk,x=>x.card),cash=sum(tk,x=>x.cash),tot=card+cash,spend=sum(ex,x=>x.amount),wages=sum(wg,x=>x.amount),banked=sum(bk,x=>x.amount);
+  const logo=(document.querySelector("#logo img")||{}).src||"icon.svg";
+  let h=`<div class="rp-head"><img src="${esc(logo)}" alt=""><div><h1>The Grapes, Bedlington</h1><p><b>Books report:</b> ${esc(r.label)} (${longDate(r.from)} to ${longDate(r.to)})</p></div>
+    <div class="rp-meta">Printed ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}<br>by ${esc(me?me.name:"")}</div></div>`;
+  h+=`<div class="rp-figs"><div><span>Money in</span><b>${gbp(tot)}</b>card ${gbp(card)} · cash ${gbp(cash)}</div><div><span>Spending</span><b>${gbp(spend)}</b>${ex.length} items</div><div><span>Wages</span><b>${gbp(wages)}</b>${wg.length} payments</div><div><span>Left over</span><b>${gbp(tot-spend-wages)}</b>before tax</div></div>`;
+  // spending by category + wages by person
+  const byCat={};ex.forEach(x=>byCat[x.cat||"Other"]=(byCat[x.cat||"Other"]||0)+x.amount);
+  const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const byP={};wg.forEach(x=>{const k=x.who||"?";byP[k]=byP[k]||{h:0,a:0,n:0};byP[k].h+=x.hours||0;byP[k].a+=x.amount;byP[k].n++});
+  const ppl=Object.entries(byP).sort((a,b)=>b[1].a-a[1].a);
+  h+=`<div class="two"><div><h2>Spending by type</h2>${cats.length?T(cats.map(([k,v])=>`<tr>${td(esc(k))}${td(gbp(v),1)}</tr>`),[["Type"],["Amount","n"]],`<tr class="tot">${td("Total")}${td(gbp(spend),1)}</tr>`):"<p class='note'>No spending in this period.</p>"}</div>
+    <div><h2>Wages by person</h2>${ppl.length?T(ppl.map(([k,v])=>`<tr>${td(esc(k))}${td(v.h?String(v.h):"",1)}${td(gbp(v.a),1)}</tr>`),[["Name"],["Hours","n"],["Paid","n"]],`<tr class="tot">${td("Total")}${td(String(sum(wg,x=>x.hours||0)||""),1)}${td(gbp(wages),1)}</tr>`):"<p class='note'>No wages in this period.</p>"}</div></div>`;
+  // cash check
+  const dayBefore=ymd(new Date(new Date(r.from+"T12:00:00").getTime()-864e5));
+  const start=cashPosition(dayBefore),exC=sum(ex.filter(x=>isCash(x.how)),x=>x.amount),wgC=sum(wg.filter(x=>isCash(x.how)),x=>x.amount);
+  h+=`<div class="two"><div><h2>Cash check</h2>${T([`<tr>${td("Cash in safe at start")}${td(gbp(start),1)}</tr>`,`<tr>${td("+ Cash taken")}${td(gbp(cash),1)}</tr>`,`<tr>${td("− Spent from the till")}${td(gbp(exC),1)}</tr>`,`<tr>${td("− Wages paid in cash")}${td(gbp(wgC),1)}</tr>`,`<tr>${td("− Paid into bank")}${td(gbp(banked),1)}</tr>`],[["Cash"],["","n"]],`<tr class="tot">${td("Should be in safe at end")}${td(gbp(start+cash-exC-wgC-banked),1)}</tr>`)}${settings.float?`<p class="note">Plus the ${gbp(settings.float)} till float.</p>`:""}</div>`;
+  if(settings.vat){const outV=Math.round(tot/6),inV=sum(ex,x=>x.vat||0);
+    h+=`<div><h2>VAT (guide only)</h2>${T([`<tr>${td("VAT in takings (one sixth)")}${td(gbp(outV),1)}</tr>`,`<tr>${td("VAT on spending (receipts)")}${td(gbp(inV),1)}</tr>`],[["VAT"],["","n"]],`<tr class="tot">${td("Rough amount owed")}${td(gbp(outV-inV),1)}</tr>`)}<p class="note">Assumes all sales standard-rated at 20%. The accountant files the real return.</p></div></div>`;
+  }else{const days=tk.length;
+    h+=`<div><h2>Takings</h2>${T([`<tr>${td("Days entered")}${td(String(days),1)}</tr>`,`<tr>${td("Average day")}${td(gbp(days?Math.round(tot/days):0),1)}</tr>`,`<tr>${td("Best day")}${td(days?gbp(Math.max(...tk.map(t))):"–",1)}</tr>`],[["Takings"],["","n"]])}</div></div>`}
+  if(full){
+    const totZ=sum(tk,x=>x.z);
+    h+=`<h2>Takings day by day</h2>${tk.length?T(tk.map(x=>{const d=x.z?t(x)-x.z:null;return `<tr>${td(new Date(x.date+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}))}${td(x.z?gbp(x.z):"",1)}${td(gbp(x.card||0),1)}${td(gbp(x.cash||0),1)}${td(gbp(t(x)),1)}<td class="n ${d<0?"short":""}">${d===null||Math.abs(d)<1?"":(d>0?"+":"")+gbp(d)}</td>${td(esc(x.note||""))}</tr>`}),[["Date"],["Z-read","n"],["Card","n"],["Cash","n"],["Total","n"],["Over/short","n"],["Notes"]],`<tr class="tot">${td("Total")}${td(totZ?gbp(totZ):"",1)}${td(gbp(card),1)}${td(gbp(cash),1)}${td(gbp(tot),1)}${td("",1)}${td("")}</tr>`):"<p class='note'>No takings in this period.</p>"}`;
+    h+=`<h2>Spending</h2>${ex.length?T(ex.map(x=>`<tr>${td(x.date.split("-").reverse().join("/"))}${td(esc(x.who||""))}${td(esc(x.cat||""))}${td(esc(x.how||""))}${settings.vat?td(x.vat?gbp(x.vat):"",1):""}${td(gbp(x.amount),1)}${td(esc(x.note||""))}</tr>`),[["Date"],["Supplier"],["Type"],["Paid by"]].concat(settings.vat?[["VAT","n"]]:[]).concat([["Amount","n"],["Notes"]]),`<tr class="tot">${td("Total")}${td("")}${td("")}${td("")}${settings.vat?td(gbp(sum(ex,x=>x.vat||0)),1):""}${td(gbp(spend),1)}${td("")}</tr>`):"<p class='note'>No spending in this period.</p>"}`;
+    h+=`<h2>Wages paid</h2>${wg.length?T(wg.map(x=>`<tr>${td(x.date.split("-").reverse().join("/"))}${td(esc(x.who||""))}${td(x.hours?String(x.hours):"",1)}${td(x.rate?gbp(x.rate):"",1)}${td(esc(x.how||""))}${td(gbp(x.amount),1)}</tr>`),[["Date"],["Name"],["Hours","n"],["Rate","n"],["Paid by"],["Amount","n"]],`<tr class="tot">${td("Total")}${td("")}${td("",1)}${td("",1)}${td("")}${td(gbp(wages),1)}</tr>`):"<p class='note'>No wages in this period.</p>"}`;
+    h+=`<h2>Cash paid into the bank</h2>${bk.length?T(bk.map(x=>`<tr>${td(x.date.split("-").reverse().join("/"))}${td(esc(x.note||""))}${td(gbp(x.amount),1)}</tr>`),[["Date"],["Paying-in ref"],["Amount","n"]],`<tr class="tot">${td("Total")}${td("")}${td(gbp(banked),1)}</tr>`):"<p class='note'>No bankings in this period.</p>"}`;
+  }
+  h+=`<div class="rp-foot"><span>The Grapes Keeper</span><span>Figures are as entered. Not a substitute for the accountant's accounts.</span></div>`;
+  return h;
+}
+$("rPrint").addEventListener("click",()=>{
+  const r=reportRange();if(!r){toast("Pick both dates first");return}
+  $("report").innerHTML=buildReport(r,$("rDetail").value==="full");
+  const imgs=[...$("report").querySelectorAll("img")];
+  Promise.all(imgs.map(i=>i.complete?0:new Promise(res=>{i.onload=i.onerror=res}))).then(()=>window.print());
+});
+
 /* export for the accountant (CSV opens in Excel) */
 function csv(rows){return rows.map(r=>r.map(v=>{const s=String(v??"");return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(",")).join("\r\n")}
 function exportRows(filter){
-  const rows=[["Date","Type","Who / what","Category","Money in","Money out","VAT","Paid by","Notes"]];
+  const rows=[["Date","Type","Who / what","Category","Money in","Money out","VAT","Paid by","Notes","Entered by"]];
   const all=[];
-  data.takings.filter(filter).forEach(r=>{if(r.card)all.push([r.date,"Takings","Card takings","",fromP(r.card),"","","Card",r.note||""]);if(r.cash)all.push([r.date,"Takings","Cash takings","",fromP(r.cash),"","","Cash",r.note||""])});
-  data.expenses.filter(filter).forEach(r=>all.push([r.date,"Spending",r.who,r.cat,"",fromP(r.amount),fromP(r.vat),r.how,r.note||""]));
-  data.wages.filter(filter).forEach(r=>all.push([r.date,"Wages",r.who,r.hours?r.hours+" hrs":"","",fromP(r.amount),"",r.how,r.note||""]));
-  data.banking.filter(filter).forEach(r=>all.push([r.date,"Banked","Cash paid into bank","","","","","",r.note||""]));
+  data.takings.filter(filter).forEach(r=>{if(r.card)all.push([r.date,"Takings","Card takings","",fromP(r.card),"","","Card",r.note||"",r.by||""]);if(r.cash)all.push([r.date,"Takings","Cash takings","",fromP(r.cash),"","","Cash",r.note||"",r.by||""])});
+  data.expenses.filter(filter).forEach(r=>all.push([r.date,"Spending",r.who,r.cat,"",fromP(r.amount),fromP(r.vat),r.how,r.note||"",r.by||""]));
+  data.wages.filter(filter).forEach(r=>all.push([r.date,"Wages",r.who,r.hours?r.hours+" hrs":"","",fromP(r.amount),"",r.how,r.note||"",r.by||""]));
+  data.banking.filter(filter).forEach(r=>all.push([r.date,"Banked","Cash paid into bank","","","","","",r.note||"",r.by||""]));
   all.sort((a,b)=>a[0].localeCompare(b[0]));return csv(rows.concat(all));
 }
 function doExport(name,filter){
@@ -259,8 +362,9 @@ function doExport(name,filter){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast("Downloaded");
 }
-$("exMonth").addEventListener("click",()=>doExport("grapes-keeper-"+month+".csv",r=>r.date&&r.date.slice(0,7)===month));
+$("rCsv").addEventListener("click",()=>{const r=reportRange();if(!r){toast("Pick both dates first");return}doExport(`grapes-keeper-${r.from}-to-${r.to}.csv`,x=>x.date&&x.date>=r.from&&x.date<=r.to)});
 $("exAll").addEventListener("click",()=>doExport("grapes-keeper-all-to-"+today()+".csv",()=>true));
+
 
 /* start: load, then keep phone and computer in step */
 fillCats();

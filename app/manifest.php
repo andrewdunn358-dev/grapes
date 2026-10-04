@@ -10,7 +10,7 @@ echo json_encode([
     'short_name' => 'Grapes Keeper',
     'start_url' => './',
     'display' => 'standalone',
-    'background_color' => '#f3f1f4',
-    'theme_color' => '#5d2a63',
+    'background_color' => '#f4f1f0',
+    'theme_color' => '#411111',
     'icons' => $icons,
 ], JSON_UNESCAPED_SLASHES);

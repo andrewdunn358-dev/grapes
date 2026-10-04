@@ -49,8 +49,16 @@ function db(): PDO
     $pdo->exec('CREATE TABLE IF NOT EXISTS gk_settings (
         k VARCHAR(40) NOT NULL PRIMARY KEY,
         v TEXT NOT NULL)');
-    $pdo->exec('CREATE TABLE IF NOT EXISTS gk_tokens (
+    $pdo->exec('CREATE TABLE IF NOT EXISTS gk_users (
+        id VARCHAR(40) NOT NULL PRIMARY KEY,
+        username VARCHAR(40) NOT NULL UNIQUE,
+        name VARCHAR(80) NOT NULL,
+        role VARCHAR(10) NOT NULL,
+        pass_hash VARCHAR(255) NOT NULL,
+        created_at BIGINT NOT NULL)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS gk_sessions (
         token_hash CHAR(64) NOT NULL PRIMARY KEY,
+        user_id VARCHAR(40) NOT NULL,
         expires BIGINT NOT NULL)');
     return $pdo;
 }
@@ -74,23 +82,67 @@ function is_https(): bool
         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 }
 
-function logged_in(): bool
+/* ---------- users ---------- */
+function user_count(): int
 {
-    $t = $_COOKIE[COOKIE] ?? '';
-    if (!preg_match('/^[a-f0-9]{64}$/', $t)) return false;
-    $st = db()->prepare('SELECT expires FROM gk_tokens WHERE token_hash = ?');
-    $st->execute([hash('sha256', $t)]);
-    $exp = $st->fetchColumn();
-    return $exp !== false && (int)$exp > time();
+    return (int)db()->query('SELECT COUNT(*) FROM gk_users')->fetchColumn();
 }
 
-function start_login(): void
+function find_user_by_username(string $u): ?array
+{
+    $st = db()->prepare('SELECT * FROM gk_users WHERE username = ?');
+    $st->execute([strtolower(trim($u))]);
+    $r = $st->fetch();
+    return $r ?: null;
+}
+
+function clean_username(string $u): string
+{
+    return strtolower(trim($u));
+}
+
+function valid_username(string $u): bool
+{
+    return (bool)preg_match('/^[a-z0-9._-]{2,40}$/', $u);
+}
+
+function create_user(string $username, string $name, string $role, string $password): string
+{
+    $id = bin2hex(random_bytes(8));
+    db()->prepare('INSERT INTO gk_users (id, username, name, role, pass_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+        ->execute([$id, clean_username($username), mb_substr(trim($name), 0, 80), $role === 'admin' ? 'admin' : 'user',
+            password_hash($password, PASSWORD_DEFAULT), time()]);
+    return $id;
+}
+
+function public_user(array $u): array
+{
+    return ['id' => $u['id'], 'username' => $u['username'], 'name' => $u['name'], 'role' => $u['role']];
+}
+
+/* ---------- sessions (stay logged in on a device) ---------- */
+function current_user(): ?array
+{
+    static $cached = false;
+    if ($cached !== false) return $cached;
+    $cached = null;
+    $t = $_COOKIE[COOKIE] ?? '';
+    if (!preg_match('/^[a-f0-9]{64}$/', $t)) return null;
+    $st = db()->prepare('SELECT u.* FROM gk_sessions s JOIN gk_users u ON u.id = s.user_id
+        WHERE s.token_hash = ? AND s.expires > ?');
+    $st->execute([hash('sha256', $t), time()]);
+    $u = $st->fetch();
+    $cached = $u ?: null;
+    return $cached;
+}
+
+function start_login(string $userId): void
 {
     $days = 180; // stay logged in on this device for six months
     $t = bin2hex(random_bytes(32));
-    db()->prepare('DELETE FROM gk_tokens WHERE expires < ?')->execute([time()]);
-    db()->prepare('INSERT INTO gk_tokens (token_hash, expires) VALUES (?, ?)')
-        ->execute([hash('sha256', $t), time() + $days * 86400]);
+    db()->prepare('DELETE FROM gk_sessions WHERE expires < ?')->execute([time()]);
+    db()->prepare('INSERT INTO gk_sessions (token_hash, user_id, expires) VALUES (?, ?, ?)')
+        ->execute([hash('sha256', $t), $userId, time() + $days * 86400]);
     setcookie(COOKIE, $t, [
         'expires' => time() + $days * 86400, 'path' => '/', 'secure' => is_https(),
         'httponly' => true, 'samesite' => 'Strict',
@@ -100,8 +152,17 @@ function start_login(): void
 function end_login(): void
 {
     $t = $_COOKIE[COOKIE] ?? '';
-    if ($t !== '') db()->prepare('DELETE FROM gk_tokens WHERE token_hash = ?')->execute([hash('sha256', $t)]);
+    if ($t !== '') db()->prepare('DELETE FROM gk_sessions WHERE token_hash = ?')->execute([hash('sha256', $t)]);
     setcookie(COOKIE, '', ['expires' => time() - 3600, 'path' => '/', 'secure' => is_https(), 'httponly' => true, 'samesite' => 'Strict']);
+}
+
+function end_user_sessions(string $userId, bool $keepCurrent = false): void
+{
+    if ($keepCurrent && ($t = $_COOKIE[COOKIE] ?? '') !== '') {
+        db()->prepare('DELETE FROM gk_sessions WHERE user_id = ? AND token_hash <> ?')->execute([$userId, hash('sha256', $t)]);
+    } else {
+        db()->prepare('DELETE FROM gk_sessions WHERE user_id = ?')->execute([$userId]);
+    }
 }
 
 function logo_file(): ?string

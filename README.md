@@ -34,7 +34,7 @@ Everything runs in Docker on the NAS, and she reaches it from outside through a 
      mkdir -p data/mariadb data/backups   # Synology won't create these itself
      sudo docker compose up -d --build
      ```
-4. **Set her password.** Open `http://NAS-IP:1358` and choose the password she'll log in with.
+4. **Create your admin account.** Open `http://NAS-IP:1358`. The first visit asks for your name, a username and a password. Then go to **Setup → People who can log in** to add Diane with her own username and password.
 
 ### Cloudflare
 
@@ -66,7 +66,7 @@ It then opens like an app.
 
 ## Her logo
 
-Put the pub's logo in `app/` as `logo.png`, then run `sudo docker compose up -d --build`. It's used for the header, login screen and home-screen icon. `.jpg`, `.webp` and `.svg` also work.
+The Grapes logo is `app/logo.png`. It's used for the header, login screen, printed reports and the phone home-screen icon. To change it, replace the file and run `sudo docker compose up -d --build`.
 
 ## Updating
 
@@ -88,20 +88,20 @@ zcat data/backups/grapes-2026-10-04.sql.gz | sudo docker exec -i grapes-keeper-d
   sh -c 'mariadb -u grapes -p"$MARIADB_PASSWORD" grapes'
 ```
 
-**Forgotten app password:** this resets the password and keeps the books.
+**Forgotten password:** an admin can reset anyone's password from Setup → People who can log in. If the admin is locked out, run this on the NAS:
 
 ```sh
-sudo docker exec grapes-keeper-db sh -c \
-  "mariadb -u grapes -p\"\$MARIADB_PASSWORD\" grapes -e \"DELETE FROM gk_settings WHERE k='password_hash'; DELETE FROM gk_tokens;\""
+sudo docker exec -it grapes-keeper php /var/www/html/reset-password.php frankie NewPassword123
 ```
 
-Visit the site and it asks for a new password.
+If that username doesn't exist, the script creates it as an admin.
 
 **Spare copy:** the Month tab's *Download everything* gives a CSV any time.
 
 ## Good to know
 
-- **One app password** for everyone. Changing it under Setup logs out every other device.
+- **Accounts:** everyone has their own login. Admins can add people, reset passwords, and make someone an admin or books-only. Each entry records who made it, which shows in the app, the reports and the CSV.
+- **Reports:** the Month tab prints a report for the month, quarter, tax year (6 April to 5 April) or chosen dates, in full or one-page summary. Use "Save as PDF" in the print screen for a PDF.
 - **Login protection:** 5 wrong tries locks logins for 10 minutes.
 - **Money** is stored in pence to avoid rounding errors.
 - **VAT:** off by default. The Month tab compares the last 12 months' takings with the £90,000 registration threshold until VAT is switched on under Setup.

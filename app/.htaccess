@@ -8,7 +8,7 @@ DirectoryIndex index.php
 Options -Indexes
 
 # Never serve config, helpers, docs or local test databases directly
-<FilesMatch "^(config\.php|config\.sample\.php|lib\.php|app\.html|README\.md|.*\.sqlite)$">
+<FilesMatch "^(config\.php|config\.sample\.php|lib\.php|reset-password\.php|app\.html|README\.md|.*\.sqlite)$">
   Require all denied
 </FilesMatch>
 RedirectMatch 404 /\.git
