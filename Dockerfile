@@ -10,7 +10,7 @@ RUN docker-php-ext-install pdo_mysql \
 
 COPY app/ /var/www/html/
 # Cloudflare provides HTTPS in front, so drop the hosting-style HTTPS redirect.
-# That also keeps plain http://nas-ip:8080 working on the pub's own network.
+# That also keeps plain http://nas-ip:1358 working on the pub's own network.
 RUN sed -i '/^RewriteCond %{HTTPS}/,/^RewriteRule/d' /var/www/html/.htaccess \
  && rm -f /var/www/html/config.php /var/www/html/config.sample.php /var/www/html/README.md \
  && chown -R www-data:www-data /var/www/html
