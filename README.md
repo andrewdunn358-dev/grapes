@@ -31,6 +31,7 @@ Everything runs in Docker on the NAS, and she reaches it from outside through a 
    - over SSH:
      ```sh
      cd /volume1/docker/grapes
+     mkdir -p data/mariadb data/backups   # Synology won't create these itself
      sudo docker compose up -d --build
      ```
 4. **Set her password.** Open `http://NAS-IP:1358` and choose the password she'll log in with.
